@@ -4,7 +4,6 @@ module Main exposing
     , main
     , offset
     , one
-    , polyShapeAt
     , three
     , timeInterval
     , toPoints
@@ -14,6 +13,17 @@ module Main exposing
 
 import Svg exposing (..)
 import Svg.Attributes exposing (..)
+
+
+dash =
+    [ ( 0, 100 )
+    , ( 100, 100 )
+    , ( 0, 100 )
+    , ( 100, 100 )
+    , ( 0, 100 )
+    , ( 100, 100 )
+    , ( 0, 100 )
+    ]
 
 
 two =
@@ -69,10 +79,11 @@ type Time
     = Time Float
 
 
+timeInterval : Int -> List Time
 timeInterval steps =
     let
         step =
-            1.0 / steps
+            1.0 / toFloat steps
 
         aux curr =
             if curr <= 1.0 then
@@ -118,23 +129,77 @@ offset xOffset yOffset =
     List.map (\( x, y ) -> ( x + xOffset, y + yOffset ))
 
 
-polyShapeAt : List ( Int, Int ) -> Int -> Int -> String
-polyShapeAt shape offX offY =
-    shape |> offset offX offY |> toPoints
+blackPolyline : List ( Int, Int ) -> Svg never
+blackPolyline lst =
+    polyline [ fill "none", stroke "black", points (lst |> toPoints) ] []
 
-morph : List (Int,Int) -> Int -> List (Int,Int)
-morph lst steps =
-    ts = timeInterval
+
+morph : List ( Int, Int ) -> List ( Int, Int ) -> Int -> List (List ( Int, Int ))
+morph lstA lstB steps =
+    let
+        map =
+            List.map
+
+        ts =
+            timeInterval steps
+
+        ( lstAf, lstBf ) =
+            ( map floatify lstA, map floatify lstB )
+
+        zipped =
+            List.map2 Tuple.pair lstAf lstBf
+    in
+    map
+        (\t ->
+            map (\( apoint, bpoint ) -> interpolateXY apoint bpoint t) zipped |> map intify
+        )
+        ts
+
+
+fromChar : Char -> Maybe List ( Int, Int )
+fromChar c =
+    case c of
+        '1' ->
+            one
+
+        '3' ->
+            three
+
+        '2' ->
+            two
+
+        '0' ->
+            zero
+
+        '-' ->
+            dash
+
+
+fromString : String -> List (List ( Int, Int ))
+fromString str =
+    String.toList str |> List.map fromChar
+
 
 main =
     let
         twoString =
             toPoints two
+
+        map =
+            List.map
+
+        morphed =
+            morph three zero 30 |> map (offset 100 100) |> map blackPolyline
+
+        oud =
+            "31-12-2020" |> fromString
+
+        nieuw =
+            "01-01-2021" |> fromString
     in
     svg
         [ width "800"
         , height "800"
         , viewBox "0 0 800 800"
         ]
-        [ polyline [ fill "none", stroke "black", points twoString ] []
-        ]
+        morphed

@@ -1,6 +1,7 @@
 module Main exposing
     ( interpolate
     , interpolateXY
+    , line1d
     , main
     , offset
     , one
@@ -11,6 +12,7 @@ module Main exposing
     , zero
     )
 
+import Hex
 import Maybe.Extra as M
 import Svg exposing (..)
 import Svg.Attributes exposing (..)
@@ -50,24 +52,24 @@ zero =
 
 
 three =
-    [ ( 100, 0 )
-    , ( 0, 0 )
-    , ( 0, 100 )
+    [ ( 0, 0 )
+    , ( 100, 0 )
     , ( 100, 100 )
     , ( 0, 100 )
-    , ( 0, 200 )
+    , ( 100, 100 )
     , ( 100, 200 )
+    , ( 0, 200 )
     ]
 
 
 one =
-    [ ( 50, 0 )
-    , ( 50, 200 )
+    [ ( 0, 50 )
     , ( 50, 0 )
     , ( 50, 200 )
-    , ( 50, 0 )
+    , ( 0, 200 )
+    , ( 100, 200 )
     , ( 50, 200 )
-    , ( 50, 0 )
+    , ( 0, 200 )
     ]
 
 
@@ -130,9 +132,9 @@ offset xOffset yOffset =
     List.map (\( x, y ) -> ( x + xOffset, y + yOffset ))
 
 
-blackPolyline : List ( Int, Int ) -> Svg never
-blackPolyline lst =
-    polyline [ fill "none", stroke "black", points (lst |> toPoints) ] []
+blackPolyline : Int -> List ( Int, Int ) -> Svg never
+blackPolyline alpha lst =
+    polyline [ strokeWidth "8", fill "none", "black" |> stroke, points (lst |> toPoints) ] []
 
 
 morph : List ( Int, Int ) -> List ( Int, Int ) -> Int -> List (List ( Int, Int ))
@@ -199,8 +201,33 @@ lineOffsetShapes offsetLst shapes =
     List.map2 (\shape ( x, y ) -> offset x y shape) shapes offsetLst
 
 
+line1d : List Time -> Float -> Float -> List Float
+line1d ts a b =
+    ts |> List.map (interpolate a b)
+
+
+zeroPad str =
+    case String.length str of
+        1 ->
+            "0" ++ str
+
+        n ->
+            str
+
+
+sine : List Time -> List Float
+sine ts =
+    List.map (\(Time t) -> (0.5 * sin (t * 3.14159265359)) + 1.0) ts
+
+
 main =
     let
+        num =
+            12
+
+        ts =
+            timeInterval num
+
         twoString =
             toPoints two
 
@@ -210,29 +237,32 @@ main =
         -- morphed =
         --     morph three zero 32 |> map (offset 100 100) |> map blackPolyline
         oud =
-            "31-12-2020" |> fromString
+            "-31-12-2020" |> fromString
 
         nieuw =
-            "01-01-2021" |> fromString
+            "01-01-2021-" |> fromString
 
         charOffsets =
-            offsets 10 150 100
+            offsets (List.length oud) 400 100
 
         perspective =
-            line ( 0, 0 ) ( 100, 100 ) (timeInterval 30)
+            line ( 100, 0 ) ( 100, 3000 ) ts
 
-        drawChar charA charB off =
-            morph charA charB 30
+        trans =
+            List.repeat num 255
+
+        drawChar charA charB off transparancy =
+            morph charA charB num
                 |> lineOffsetShapes perspective
                 |> map ((\( x, y ) -> offset x y) off)
-                |> map blackPolyline
+                |> map (blackPolyline transparancy)
 
         allChars =
-            List.map3 drawChar oud nieuw charOffsets |> List.concat
+            List.map4 drawChar oud nieuw charOffsets trans |> List.concat
     in
     svg
-        [ width "1500"
-        , height "1500"
-        , viewBox "0 0 1500 1500"
+        [ width "1000"
+        , height "1000"
+        , viewBox "0 0 9000 5000"
         ]
         allChars

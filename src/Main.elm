@@ -11,6 +11,7 @@ module Main exposing
     , zero
     )
 
+import Maybe.Extra as M
 import Svg exposing (..)
 import Svg.Attributes exposing (..)
 
@@ -156,28 +157,46 @@ morph lstA lstB steps =
         ts
 
 
-fromChar : Char -> Maybe List ( Int, Int )
+fromChar : Char -> Maybe (List ( Int, Int ))
 fromChar c =
     case c of
         '1' ->
-            one
+            Just one
 
         '3' ->
-            three
+            Just three
 
         '2' ->
-            two
+            Just two
 
         '0' ->
-            zero
+            Just zero
 
         '-' ->
-            dash
+            Just dash
+
+        _ ->
+            Nothing
 
 
 fromString : String -> List (List ( Int, Int ))
 fromString str =
-    String.toList str |> List.map fromChar
+    String.toList str |> List.map fromChar |> M.values
+
+
+offsets : Int -> Int -> Int -> List ( Int, Int )
+offsets number spacing offsetY =
+    List.range 0 number |> List.map (\x -> ( x * spacing, offsetY ))
+
+
+line : ( Int, Int ) -> ( Int, Int ) -> List Time -> List ( Int, Int )
+line a b ts =
+    List.map (interpolateXY (floatify a) (floatify b)) ts |> List.map intify
+
+
+lineOffsetShapes : List ( Int, Int ) -> List (List ( Int, Int )) -> List (List ( Int, Int ))
+lineOffsetShapes offsetLst shapes =
+    List.map2 (\shape ( x, y ) -> offset x y shape) shapes offsetLst
 
 
 main =
@@ -185,21 +204,35 @@ main =
         twoString =
             toPoints two
 
-        map =
-            List.map
+        ( map, concatMap ) =
+            ( List.map, List.concatMap )
 
-        morphed =
-            morph three zero 30 |> map (offset 100 100) |> map blackPolyline
-
+        -- morphed =
+        --     morph three zero 32 |> map (offset 100 100) |> map blackPolyline
         oud =
             "31-12-2020" |> fromString
 
         nieuw =
             "01-01-2021" |> fromString
+
+        charOffsets =
+            offsets 10 150 100
+
+        perspective =
+            line ( 0, 0 ) ( 100, 100 ) (timeInterval 30)
+
+        drawChar charA charB off =
+            morph charA charB 30
+                |> lineOffsetShapes perspective
+                |> map ((\( x, y ) -> offset x y) off)
+                |> map blackPolyline
+
+        allChars =
+            List.map3 drawChar oud nieuw charOffsets |> List.concat
     in
     svg
-        [ width "800"
-        , height "800"
-        , viewBox "0 0 800 800"
+        [ width "1500"
+        , height "1500"
+        , viewBox "0 0 1500 1500"
         ]
-        morphed
+        allChars

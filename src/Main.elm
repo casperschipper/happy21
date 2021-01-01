@@ -12,6 +12,7 @@ module Main exposing
     , zero
     )
 
+import Basics.Extra exposing (fractionalModBy)
 import Browser
 import Browser.Dom as Dom
 import Hex
@@ -42,6 +43,10 @@ subscriptions _ =
 
 init _ =
     ( Model 0 0 0 0 0, Task.perform GotViewPort Dom.getViewport )
+
+
+type alias Point =
+    ( Float, Float )
 
 
 type Msg
@@ -202,9 +207,8 @@ one =
     ]
 
 
-toInts : List ( Float, Float ) -> List ( Int, Int )
 toInts =
-    List.map (Tuple.mapBoth floor floor)
+    List.map intify
 
 
 type Time
@@ -330,7 +334,7 @@ toPoints =
     List.map (\( x, y ) -> f x ++ "," ++ f y) >> String.join " "
 
 
-offset : Int -> Int -> List ( Int, Int ) -> List ( Int, Int )
+offset : Float -> Float -> List ( Float, Float ) -> List ( Float, Float )
 offset xOffset yOffset =
     List.map (\( x, y ) -> ( x + xOffset, y + yOffset ))
 
@@ -340,26 +344,23 @@ blackPolyline width opacity lst =
     polyline [ strokeWidth (String.fromInt width), fill "none", "black" |> stroke, strokeOpacity (String.fromFloat opacity), points (lst |> toPoints) ] []
 
 
-morph : List ( Int, Int ) -> List ( Int, Int ) -> List Time -> List (List ( Int, Int ))
+morph : List ( Float, Float ) -> List ( Float, Float ) -> List Time -> List (List ( Float, Float ))
 morph lstA lstB ts =
     let
         ( map, take ) =
             ( List.map, List.take )
 
-        ( lstAf, lstBf ) =
-            ( map floatify lstA, map floatify lstB )
-
         zipped =
-            List.map2 Tuple.pair lstAf lstBf
+            List.map2 Tuple.pair lstA lstB
     in
     map
         (\t ->
-            map (\( apoint, bpoint ) -> interpolateXY apoint bpoint t) zipped |> map intify
+            map (\( apoint, bpoint ) -> interpolateXY apoint bpoint t) zipped
         )
         ts
 
 
-fromChar : Char -> Maybe (List ( Int, Int ))
+fromChar : Char -> Maybe (List ( Float, Float ))
 fromChar c =
     case c of
         '1' ->
@@ -381,22 +382,22 @@ fromChar c =
             Nothing
 
 
-fromString : String -> List (List ( Int, Int ))
+fromString : String -> List (List ( Float, Float ))
 fromString str =
     String.toList str |> List.map fromChar |> M.values
 
 
-offsets : Int -> Int -> Int -> List ( Int, Int )
+offsets : Int -> Float -> Float -> List ( Float, Float )
 offsets number spacing offsetY =
-    List.range 0 number |> List.map (\x -> ( x * spacing, offsetY ))
+    List.range 0 number |> List.map (\x -> ( toFloat x * spacing, offsetY ))
 
 
-line : ( Int, Int ) -> ( Int, Int ) -> List Time -> List ( Int, Int )
+line : ( Float, Float ) -> ( Float, Float ) -> List Time -> List ( Float, Float )
 line a b ts =
-    List.map (interpolateXY (floatify a) (floatify b)) ts |> List.map intify
+    List.map (interpolateXY a b) ts
 
 
-lineOffsetShapes : List ( Int, Int ) -> List (List ( Int, Int )) -> List (List ( Int, Int ))
+lineOffsetShapes : List ( Float, Float ) -> List (List ( Float, Float )) -> List (List ( Float, Float ))
 lineOffsetShapes offsetLst shapes =
     List.map2 (\shape ( x, y ) -> offset x y shape) shapes offsetLst
 
@@ -440,13 +441,16 @@ clip c =
         c
 
 
-scale : Float -> List ( Int, Int ) -> List ( Int, Int )
+scale : Float -> List ( Float, Float ) -> List ( Float, Float )
 scale scaler =
-    List.map (\( x, y ) -> ( toFloat x * scaler |> round, toFloat y * scaler |> round ))
+    List.map (\( x, y ) -> ( x * scaler, y * scaler ))
 
 
 layer x y w h lineWidth =
     let
+        ( wf, hf ) =
+            ( toFloat w, toFloat h )
+
         xf =
             toFloat x / toFloat w
 
@@ -454,10 +458,10 @@ layer x y w h lineWidth =
             toFloat y / toFloat h
 
         num =
-            10
+            y // 10 |> Basics.clamp 10 1000
 
         ts =
-            timeSlice num 0.1 0.0 |> List.map (shiftTime xf)
+            timeSlice num 0.1 0.0 |> List.map (shiftTime (xf * 0.9))
 
         rev b =
             1.0 - b
@@ -475,10 +479,10 @@ layer x y w h lineWidth =
             "01-01-2021-" |> fromString
 
         charOffsets =
-            offsets (List.length oud) 400 100
+            offsets (List.length oud) 800 100
 
         perspective =
-            line ( 0, 0 ) ( w * 10, h * 10 ) ts |> List.map (\( xline, yline ) -> ( remainderBy w xline, remainderBy h yline ))
+            line ( 0, 0 ) ( wf, hf * 10 ) ts |> List.map (\( xline, yline ) -> ( xline, fractionalModBy (hf * 3) yline ))
 
         trans =
             List.repeat num 0.8
@@ -486,8 +490,9 @@ layer x y w h lineWidth =
         drawChar charA charB off transparancy =
             morph charA charB ts
                 |> lineOffsetShapes perspective
-                |> List.map (scale 4.0)
+                |> List.map (scale 1.0)
                 |> map ((\( xx, yy ) -> offset xx yy) off)
+                |> List.map (List.map intify)
                 |> map (blackPolyline lineWidth transparancy)
 
         allChars =
@@ -512,16 +517,18 @@ view model =
         [ Events.on "mousemove" (D.map MouseClick decodeMousePos)
         , Events.on "touchmove" (D.map Touch decodeTouch)
         ]
-        [ -- Html.p []
-          --   [ Html.text <|
-          --       (x |> String.fromInt)
-          --           ++ " "
-          --           ++ String.fromInt y
-          --   ]
-          svg
+        [ Html.p []
+            [ Html.text <|
+                (x |> String.fromInt)
+                    ++ " "
+                    ++ String.fromInt y
+                    ++ "x/w: "
+                    ++ String.fromFloat (toFloat x / toFloat w)
+            ]
+        , svg
             [ width (String.fromInt w)
             , height (String.fromInt h)
             , viewBox "0 0 10000 5000"
             ]
-            (layer x y w h 4)
+            (layer x y w h 8)
         ]

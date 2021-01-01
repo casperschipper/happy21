@@ -38,7 +38,7 @@ main =
 
 
 subscriptions _ =
-    Time.every 50 Tick
+    Time.every 80 Tick
 
 
 init _ =
@@ -481,7 +481,7 @@ layer x y w h lineWidth t =
             offsets (List.length oud) 800 100
 
         perspective =
-            line ( -100, -100 ) ( wf, hf ) ts
+            line ( -100, -100 ) ( wf * 1.5, hf * 5 ) ts
 
         -- |> List.map (\( xline, yline ) -> ( fractionalModBy wf xline, fractionalModBy hf yline ))
         trans =
@@ -493,7 +493,7 @@ layer x y w h lineWidth t =
                 |> List.map (scale 1.0)
                 |> map ((\( xx, yy ) -> offset xx yy) off)
                 |> List.map (List.map intify)
-                |> map (blackPolyline lineWidth transparancy)
+                |> map (blackPolyline ((1.0 - yf) * 10.0 |> floor |> (+) 2) transparancy)
 
         allChars =
             List.map4 drawChar oud nieuw charOffsets trans |> List.concat

@@ -211,6 +211,11 @@ type Time
     = Time Float
 
 
+shiftTime : Float -> Time -> Time
+shiftTime shift (Time t) =
+    Time (t + shift)
+
+
 timeInterval : Int -> List Time
 timeInterval steps =
     let
@@ -427,28 +432,38 @@ triangle x =
            )
 
 
+clip c =
+    if c > 1.0 then
+        1.0
+
+    else
+        c
+
+
+scale : Float -> List ( Int, Int ) -> List ( Int, Int )
+scale scaler =
+    List.map (\( x, y ) -> ( toFloat x * scaler |> round, toFloat y * scaler |> round ))
+
+
 layer x y w h lineWidth =
     let
         xf =
-            x / toFloat w
+            toFloat x / toFloat w
 
         yf =
             toFloat y / toFloat h
 
         num =
-            (w // 4) - (x / 4 |> round)
+            10
 
         ts =
-            timeSlice num 1.0 xf
+            timeSlice num 0.1 0.0 |> List.map (shiftTime xf)
 
         rev b =
             1.0 - b
 
         tslice =
-            timeSlice num 1.0 0.0 |> timeWarp (xf |> triangle |> (*) 2.0)
-
-        twoString =
-            toPoints two
+            timeSlice num 1.0 0.0
 
         ( map, concatMap ) =
             ( List.map, List.concatMap )
@@ -463,7 +478,7 @@ layer x y w h lineWidth =
             offsets (List.length oud) 400 100
 
         perspective =
-            line ( w // 2, h // 2 ) ( xf |> rev |> (*) (toFloat w * 10) |> round, xf |> rev |> (*) (toFloat h * 10) |> round ) ts
+            line ( 0, 0 ) ( w * 10, h * 10 ) ts |> List.map (\( xline, yline ) -> ( remainderBy w xline, remainderBy h yline ))
 
         trans =
             List.repeat num 0.8
@@ -471,6 +486,7 @@ layer x y w h lineWidth =
         drawChar charA charB off transparancy =
             morph charA charB ts
                 |> lineOffsetShapes perspective
+                |> List.map (scale 4.0)
                 |> map ((\( xx, yy ) -> offset xx yy) off)
                 |> map (blackPolyline lineWidth transparancy)
 
@@ -496,16 +512,16 @@ view model =
         [ Events.on "mousemove" (D.map MouseClick decodeMousePos)
         , Events.on "touchmove" (D.map Touch decodeTouch)
         ]
-        [ Html.p []
-            [ Html.text <|
-                (x |> String.fromInt)
-                    ++ " "
-                    ++ String.fromInt y
-            ]
-        , svg
+        [ -- Html.p []
+          --   [ Html.text <|
+          --       (x |> String.fromInt)
+          --           ++ " "
+          --           ++ String.fromInt y
+          --   ]
+          svg
             [ width (String.fromInt w)
             , height (String.fromInt h)
             , viewBox "0 0 10000 5000"
             ]
-            (layer model.t y w h 4)
+            (layer x y w h 4)
         ]

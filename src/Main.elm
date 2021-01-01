@@ -38,7 +38,7 @@ main =
 
 
 subscriptions _ =
-    Time.every 100 Tick
+    Time.every 50 Tick
 
 
 init _ =
@@ -142,11 +142,7 @@ update msg model =
         Tick _ ->
             ( { model
                 | t =
-                    if model.t > toFloat model.screenw then
-                        100
-
-                    else
-                        model.t + 5.0
+                    model.t + 1 |> fractionalModBy 1000.0
               }
             , Cmd.none
             )
@@ -446,7 +442,7 @@ scale scaler =
     List.map (\( x, y ) -> ( x * scaler, y * scaler ))
 
 
-layer x y w h lineWidth =
+layer x y w h lineWidth t =
     let
         ( wf, hf ) =
             ( toFloat w, toFloat h )
@@ -460,8 +456,11 @@ layer x y w h lineWidth =
         num =
             y // 10 |> Basics.clamp 10 1000
 
+        ratio =
+            t / 100.0 |> (+) 0.01
+
         ts =
-            timeSlice num 0.1 0.0 |> List.map (shiftTime (xf * 0.9))
+            timeSlice num ratio 0.0 |> List.map (shiftTime (xf * (1.0 - ratio)))
 
         rev b =
             1.0 - b
@@ -482,8 +481,9 @@ layer x y w h lineWidth =
             offsets (List.length oud) 800 100
 
         perspective =
-            line ( 0, 0 ) ( wf, hf * 10 ) ts |> List.map (\( xline, yline ) -> ( xline, fractionalModBy (hf * 3) yline ))
+            line ( -100, -100 ) ( wf, hf ) ts
 
+        -- |> List.map (\( xline, yline ) -> ( fractionalModBy wf xline, fractionalModBy hf yline ))
         trans =
             List.repeat num 0.8
 
@@ -530,5 +530,5 @@ view model =
             , height (String.fromInt h)
             , viewBox "0 0 10000 5000"
             ]
-            (layer x y w h 8)
+            (layer x y w h 5 model.t)
         ]

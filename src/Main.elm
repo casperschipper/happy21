@@ -239,7 +239,7 @@ timeSlice steps slice offs =
             slice / toFloat steps
 
         aux curr =
-            if curr <= slice then
+            if curr < slice then
                 Time (curr + offs) :: aux (curr + step)
 
             else
@@ -454,7 +454,7 @@ layer x y w h lineWidth t =
             toFloat y / toFloat h
 
         num =
-            y // 10 |> Basics.clamp 10 1000
+            y // 10 |> Basics.clamp 11 1000
 
         ratio =
             t / 100.0 |> (+) 0.01
@@ -481,7 +481,7 @@ layer x y w h lineWidth t =
             offsets (List.length oud) 800 100
 
         perspective =
-            line ( -100, -100 ) ( wf * 1.5, hf * 5 ) ts
+            line ( 0, 0 ) ( (-w // 2) + (x * 2) |> toFloat, hf * 5 ) ts
 
         -- |> List.map (\( xline, yline ) -> ( fractionalModBy wf xline, fractionalModBy hf yline ))
         trans =
@@ -517,15 +517,16 @@ view model =
         [ Events.on "mousemove" (D.map MouseClick decodeMousePos)
         , Events.on "touchmove" (D.map Touch decodeTouch)
         ]
-        [ Html.p []
-            [ Html.text <|
-                (x |> String.fromInt)
-                    ++ " "
-                    ++ String.fromInt y
-                    ++ "x/w: "
-                    ++ String.fromFloat (toFloat x / toFloat w)
-            ]
-        , svg
+        [ -- Html.p []
+          --     [ Html.text <|
+          --         (x |> String.fromInt)
+          --             ++ " "
+          --             ++ String.fromInt y
+          --             ++ "x/w: "
+          --             ++ String.fromFloat (toFloat x / toFloat w)
+          --     ]
+          -- ,
+          svg
             [ width (String.fromInt w)
             , height (String.fromInt h)
             , viewBox "0 0 10000 5000"
